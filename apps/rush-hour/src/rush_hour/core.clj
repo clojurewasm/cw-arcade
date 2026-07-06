@@ -1,11 +1,9 @@
 (ns rush-hour.core
   "The imperative shell (Bernhardt's \"Boundaries\") — the only namespace in
-   this app allowed to touch a terminal. It is deliberately as thin as
-   possible: read a line, rush-hour.parse it into an event, fold the event
-   through rush-hour.update, rush-hour.view render the result, print it,
-   repeat until :quit. Every decision about what a move means or how the
-   board looks lives elsewhere, in pure code that doesn't know a terminal
-   exists.
+   this app allowed to touch a terminal, and (with rush-hour.update) the
+   only one allowed to know randomness exists at all: `-main` mints one
+   fresh seed via `rand-int`, then every puzzle after that is a pure,
+   deterministic function of a seed the model already carries.
 
    Input is line-based (read-line), not raw single-keystroke — deliberately:
    raw terminal mode is OS-level (termios/stty) and isn't something plain
@@ -22,6 +20,15 @@
   (print "> ")
   (flush))
 
+(defn- won-screen-event
+  "At the solved screen, any input advances to a new puzzle except an
+   explicit quit — the puzzle is over, so there's nothing left for a
+   normal command to mean."
+  [line]
+  (if (contains? #{"q" "quit"} (str/lower-case (str/trim (or line ""))))
+    {:type :quit}
+    {:type :next-puzzle}))
+
 (defn run
   "The main loop: render, prompt, read, update, repeat. Returns the final
    model (handy for scripted/tested runs; the terminal side effects along
@@ -35,16 +42,29 @@
       (do
         (prompt!)
         (if-let [line (read-line)]
-          (recur (update/update model (parse/parse line)))
+          (let [event (if (= (:status model) :won)
+                        (won-screen-event line)
+                        (parse/parse line))]
+            (recur (update/update model event)))
           model)))))
 
 (defn -main
   [& args]
-  (let [puzzle-id (if-let [arg (first args)]
-                    (keyword arg)
-                    puzzles/default-id)]
-    (if (contains? puzzles/all puzzle-id)
-      (run (update/init puzzle-id))
+  (let [seed (rand-int 1000000)
+        arg (first args)
+        difficulty (when arg (keyword arg))]
+    (cond
+      (nil? arg)
+      (run (update/init-generated seed :easy))
+
+      (contains? #{:easy :medium :hard} difficulty)
+      (run (update/init-generated seed difficulty))
+
+      (contains? puzzles/all difficulty)
+      (run (update/init-fixed difficulty seed))
+
+      :else
       (do
-        (println "Unknown puzzle:" (name puzzle-id))
-        (println "Available:" (str/join ", " (map name (keys puzzles/all))))))))
+        (println "Unknown puzzle/difficulty:" arg)
+        (println "Try: easy, medium, hard, or one of:"
+                 (str/join ", " (map name (keys puzzles/all))))))))

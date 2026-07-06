@@ -19,8 +19,10 @@
               "B" {:orientation :v :length 3 :row 1 :col 4}
               "C" {:orientation :h :length 2 :row 4 :col 4}}})
 
-(def all
-  {:warm-up warm-up
-   :gridlock gridlock})
+(def order
+  "The one place puzzle ids are listed — `all` and `next`'s cycling both
+   derive from this, so adding a puzzle never means updating two lists in
+   two namespaces that have to be kept in sync by hand."
+  [:warm-up :gridlock])
 
-(def default-id :warm-up)
+(def all (zipmap order [warm-up gridlock]))

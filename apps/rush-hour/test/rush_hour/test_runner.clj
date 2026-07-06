@@ -6,12 +6,14 @@
    the same way under clj, bb, and cljw."
   (:require [clojure.test :as t]
             [rush-hour.board-test]
+            [rush-hour.generator-test]
             [rush-hour.parse-test]
             [rush-hour.solver-test]
             [rush-hour.update-test]))
 
 (defn -main [& _]
   (t/run-tests 'rush-hour.board-test
+                'rush-hour.generator-test
                 'rush-hour.parse-test
                 'rush-hour.solver-test
                 'rush-hour.update-test))
