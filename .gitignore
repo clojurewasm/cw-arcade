@@ -1,0 +1,6 @@
+.cpcache/
+.nrepl-port
+.DS_Store
+*.jar
+.lsp/
+.clj-kondo/.cache/

@@ -1,0 +1,5 @@
+{:paths ["src"]
+ :aliases
+ {:run {:main-opts ["-m" "rush-hour.core"]}
+  :test {:extra-paths ["test"]
+         :main-opts ["-m" "rush-hour.test-runner"]}}}
