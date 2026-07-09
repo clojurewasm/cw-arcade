@@ -34,13 +34,12 @@ bb -m rush-hour.core [easy|medium|hard|warm-up|gridlock]
 cljw -m rush-hour.core [easy|medium|hard|warm-up|gridlock]
 ```
 
-> **Known limitation:** anything that calls `rush-hour.solver/solve` — the
-> puzzle generator, and `s` (hint) on any puzzle — currently crashes on
-> cljw's `vm` backend: a BFS over a `loop`/`recur`-accumulated two-list
-> queue ends up with a bare number where a `[state path]` pair should be.
-> Playing `warm-up`/`gridlock` by hand (no `s`, no `p`) is unaffected.
-> Reported upstream with a minimal, dependency-free repro; clj and bb are
-> unaffected (32 tests / 153 assertions green on both).
+> **Note on cljw speed:** the solver and generator work on cljw (the crash
+> this note used to describe was root-caused upstream — see "Found along
+> the way" — and is fixed on ClojureWasm HEAD), but the generator's
+> generate-and-test loop runs on a pure interpreter there, so a fresh
+> `medium`/`hard` board can take noticeably longer to generate than on a
+> warmed JVM. `warm-up`/`gridlock` and hints on small boards are quick.
 
 No argument starts a fresh `easy` puzzle from the generator. `warm-up` and
 `gridlock` are two hand-built puzzles kept as a fixed reference (and as a
@@ -184,10 +183,10 @@ over a dense board's reachable-state graph gets expensive fast — one early
 13-vehicle candidate took over 15 seconds to resolve before this app capped
 the search (`rush-hour.solver`'s `max-states`, and `rush-hour.generator`'s
 own tighter probe budget during generate-and-test). `easy`/`medium` generate
-in well under a second on any of the three runtimes; `hard` is normally
-sub-second on real Clojure and cljw, but can take a few seconds on Babashka
-specifically (no JIT warmup, so this CPU-bound search runs noticeably slower
-there than on a warmed JVM). That's also why the difficulty tiers stay
+in well under a second on real Clojure; `hard` is normally sub-second there
+too, but can take a few seconds on Babashka (no JIT warmup) and noticeably
+longer on cljw (a pure interpreter today — this CPU-bound search is the
+worst case for it; unlucky `hard` seeds can take minutes). That's also why the difficulty tiers stay
 modest at the top end rather than chasing a real "expert" card's forced
 30+-move solutions: a random scatter rarely stumbles into that kind of
 deliberately-interlocked deadlock, so pushing the target window higher
@@ -196,9 +195,18 @@ harder boards.
 
 ## Found along the way
 
-Building this surfaced a real bug in `cljw`: `read-line` returned `nil` for
-any non-interactive stdin (pipe or file redirect) instead of the actual
-input line, which blocked scripted/automated playthroughs specifically (the
-pure-logic test suite was unaffected and passed on `cljw` from the start).
-Fixed upstream in ClojureWasm (`*in*`'s root was an unset stdin reader) —
-this app's automated playthrough is what caught it.
+Building this surfaced two real bugs in `cljw`:
+
+- `read-line` returned `nil` for any non-interactive stdin (pipe or file
+  redirect) instead of the actual input line, which blocked
+  scripted/automated playthroughs specifically. Fixed upstream (`*in*`'s
+  root was an unset stdin reader) — this app's automated playthrough is
+  what caught it.
+- The solver's BFS — a `loop`/`recur`-accumulated two-list queue of
+  `[state path]` pairs — hit a garbage-collector use-after-free: under
+  allocation pressure a queue element would decay into a bare number or
+  string mid-search. Reported upstream with a dependency-free repro; the
+  root cause turned out to be three tokens wide (`(first (rest (range 2)))`
+  could read freed memory when a collection landed inside the chunked-seq
+  advance). Fixed upstream in ClojureWasm; this suite is one of its
+  regression guards now.
