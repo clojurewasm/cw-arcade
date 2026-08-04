@@ -34,12 +34,32 @@ bb -m rush-hour.core [easy|medium|hard|warm-up|gridlock]
 cljw -m rush-hour.core [easy|medium|hard|warm-up|gridlock]
 ```
 
-> **Note on cljw speed:** the solver and generator work on cljw (the crash
-> this note used to describe was root-caused upstream — see "Found along
-> the way" — and is fixed on ClojureWasm HEAD), but the generator's
-> generate-and-test loop runs on a pure interpreter there, so a fresh
-> `medium`/`hard` board can take noticeably longer to generate than on a
-> warmed JVM. `warm-up`/`gridlock` and hints on small boards are quick.
+> **Note on cljw speed.** Everything works on cljw; generation is the slow
+> part, and "noticeably longer" is worth numbers rather than a word. Wall clock
+> including startup, seed 7 (generation cost varies a lot by seed, so the same
+> seed for all three), M4 Pro, cljw v1.8.0:
+>
+> | | clj | bb | cljw |
+> |---|---|---|---|
+> | `easy` puzzle | 0.51 s | 0.10 s | **0.42 s** |
+> | `medium` puzzle | 1.07 s | 2.46 s | **18.8 s** |
+> | the test suite | 18 s | 68 s | **>25 min** |
+>
+> So: `easy`, `warm-up`, `gridlock` and hints are fine on cljw; `medium` and
+> `hard` generation make you wait, and running the *test suite* on cljw is not
+> a reasonable thing to ask of it yet.
+>
+> Generation is a generate-and-test loop — scatter vehicles at random, ask the
+> solver whether the result is solvable and how hard, reject and retry — so it
+> runs the BFS up to 80 times per puzzle. That allocates a persistent map per
+> move and keeps a set of visited states, which is the shape cljw is currently
+> weakest on.
+>
+> Profiling this exact workload is what found ClojureWasm's GC trigger was
+> firing 755 times for a 747 KB live set, and led to
+> [ADR-0183](https://github.com/clojurewasm/ClojureWasm/blob/main/.dev/decisions/0183_gc_trigger_is_steered_by_measured_time.md)
+> — `medium` was 58 s before that. The remaining gap is interpreter speed and a
+> known GC accounting defect, both tracked upstream.
 
 No argument starts a fresh `easy` puzzle from the generator. `warm-up` and
 `gridlock` are two hand-built puzzles kept as a fixed reference (and as a
