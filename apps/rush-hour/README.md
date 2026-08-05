@@ -37,12 +37,12 @@ cljw -m rush-hour.core [easy|medium|hard|warm-up|gridlock]
 > **Note on cljw speed.** Everything works on cljw; generation is the slow
 > part, and "noticeably longer" is worth numbers rather than a word. Wall clock
 > including startup, seed 7 (generation cost varies a lot by seed, so the same
-> seed for all three), M4 Pro, cljw v1.8.0:
+> seed for all three), M4 Pro, cljw v1.9.0:
 >
 > | | clj | bb | cljw |
 > |---|---|---|---|
 > | `easy` puzzle | 0.51 s | 0.10 s | **0.42 s** |
-> | `medium` puzzle | 1.07 s | 2.46 s | **18.8 s** |
+> | `medium` puzzle | 1.07 s | 2.46 s | **17.9 s** |
 > | the test suite | 18 s | 68 s | **>25 min** |
 >
 > So: `easy`, `warm-up`, `gridlock` and hints are fine on cljw; `medium` and
